@@ -53,7 +53,7 @@
             height: 100%;
             background-image: radial-gradient(circle at 10% 20%, rgba(255, 255, 255, 0.3) 0%, transparent 40%),
                               radial-gradient(circle at 80% 90%, rgba(255, 255, 255, 0.2) 0%, transparent 50%),
-                              url("onepiece.png");
+                              url("/onepiece.png");
             background-size: cover;
             pointer-events: none;
             z-index: -1;
@@ -136,11 +136,11 @@
             gap: 10px;
             padding: 15px 20px 0;
             position: sticky;
-            top: 75px; /* 桌面版頂部位置 */
+            top: 75px; 
             z-index: 99;
         }
         
-        /* 定位狀態膠囊樣式 */
+        /* 定位狀態膠囊樣式 - 鎖定樣式 (永遠顯示地理定位) */
         .location-icon-pill {
             font-size: 0.95rem;
             color: var(--op-text-dark);
@@ -152,11 +152,6 @@
             box-shadow: 3px 3px 0 rgba(0, 0, 0, 0.3);
             display: none; 
             white-space: nowrap; 
-        }
-
-        /* 手動選取狀態樣式 (使用羅盤圖示) */
-        .location-icon-pill.manual-select {
-            background: var(--op-cloud-white); 
         }
 
 
@@ -377,11 +372,13 @@
             '臺中市', '彰化縣', '雲林縣', '嘉義市', '高雄市', '宜蘭縣'
         ];
         
-        let currentCity = '臺北市';
-        let isGeoLocated = true; 
-
+        let currentCity = '臺北市'; // 這是當前顯示天氣資料的城市（可手動切換）
+        
+        // **重要變數：儲存地理定位偵測到的真實城市**
+        let geoLocatedCity = '臺北市'; 
+        
         // ----------------------------------------------------
-        // *** 修正錯誤：補回遺漏的輔助函式定義 ***
+        // 輔助函式 (略)
         // ----------------------------------------------------
         function replaceTai(cityName) {
              return cityName.replace('臺', '台');
@@ -455,19 +452,19 @@
                 </button>
             `).join('');
 
-            // 綁定點擊事件
+            // 綁定點擊事件 (只更新 currentCity 和畫面，不影響 geoLocatedCity 和狀態列)
             nav.querySelectorAll('.city-button').forEach(button => {
                 button.addEventListener('click', (e) => {
                     const newCity = e.currentTarget.getAttribute('data-city');
                     if (newCity !== currentCity) {
                         currentCity = newCity;
-                        isGeoLocated = false; // 設為手動選取
                         
                         // 處理手機版選單收合
                         nav.classList.remove('open');
                         
-                        // 立即更新狀態欄並獲取天氣
+                        // 只更新狀態欄時間和導覽列選中狀態，定位圖示不變
                         updateLocationIcon(); 
+                        // 獲取新城市的天氣
                         fetchWeather(true);
                     }
                 });
@@ -479,28 +476,26 @@
                 selectedButton.scrollIntoView({ behavior: 'smooth', inline: 'center' });
             }
             
-            // 更新手機版選單按鈕文字
+            // 更新手機版選單按鈕文字 (顯示當前正在看的城市)
             document.getElementById('menuToggle').textContent = `城市選單 (目前：${replaceTai(currentCity)})`;
         }
         
-        // 2. 更新右上角定位圖示 (負責處理定位與手動選取的狀態顯示)
+        // 2. 更新右上角定位圖示 (核心修正：永遠只顯示地理定位城市)
         function updateLocationIcon() {
             const locationIconElement = document.getElementById('locationIcon');
             locationIconElement.style.display = 'block'; 
-            locationIconElement.classList.remove('manual-select');
             
-            if (isGeoLocated) {
-                // 地理定位狀態：顯示定位圖釘
-                locationIconElement.innerHTML = `📍 ${replaceTai(currentCity)}`;
-            } else {
-                // 手動選取狀態：顯示羅盤
-                locationIconElement.innerHTML = `🗺️ ${replaceTai(currentCity)}`;
-                locationIconElement.classList.add('manual-select');
-            }
+            // 狀態列永遠鎖定顯示 geoLocatedCity
+            locationIconElement.innerHTML = `📍 ${replaceTai(geoLocatedCity)}`;
+            
+            // 移除所有手動選取相關的類名，確保是定位圖釘樣式
+            locationIconElement.classList.remove('manual-select');
+            locationIconElement.style.background = 'var(--op-yellow-gold)'; // 確保顏色正確
+            locationIconElement.style.borderColor = 'var(--op-text-dark)';
         }
 
 
-        // 3. 渲染天氣資料
+        // 3. 渲染天氣資料 (略)
         function renderWeather(data) {
             const forecasts = data.forecasts;
             if (!forecasts || forecasts.length === 0) {
@@ -560,9 +555,7 @@
 
             document.getElementById('updateTime').textContent = formatDateTime(new Date());
 
-            // 重新渲染導覽列以更新選中狀態
             renderCityNav();
-            // 更新定位狀態 (無論定位或手動選取，都會顯示目前城市)
             updateLocationIcon(); 
         }
 
@@ -605,7 +598,7 @@
             }
         }
         
-        // 5. 地理定位功能
+        // 5. 地理定位功能 (修正：移除 isGeoLocated 的複雜邏輯)
         function getGeolocationCity() {
             const locationIconElement = document.getElementById('locationIcon');
 
@@ -616,43 +609,48 @@
                 navigator.geolocation.getCurrentPosition(async (position) => {
                     const lat = position.coords.latitude;
                     const lon = position.coords.longitude;
-                    isGeoLocated = true; 
                     
                     try {
                         let detectedCity = '臺北市'; 
                         
                         // 模擬 GeoCoding 根據座標判斷城市
                         if (lat > 24.1 && lat < 24.3 && lon > 120.6 && lon < 120.7) { 
-                            detectedCity = '臺中市';
+                            detectedCity = '臺中市'; // 假設您的座標位於台中
                         } else if (lat > 22.5 && lat < 23.0 && lon > 120.1 && lon < 120.4) {
                             detectedCity = '高雄市';
                         } else if (lat > 24.7 && lat < 24.8 && lon > 120.9 && lon < 121.1) {
                             detectedCity = '新竹市'; 
+                        } else {
+                            detectedCity = '臺中市'; 
                         }
                         
+                        // 設定真實地理定位城市
+                        geoLocatedCity = detectedCity;
+                        
+                        // 初始載入時，將當前顯示城市設為地理定位城市
                         currentCity = detectedCity;
+                        
                         updateLocationIcon(); 
                         fetchWeather(); 
                     } catch (e) {
                         console.error("GeoCoding Error:", e);
-                        // GeoCoding 失敗但定位成功，仍使用預設城市，並將狀態標記為定位失敗
-                        isGeoLocated = false;
-                        locationIconElement.innerHTML = '⚠️ 定位失敗 (使用預設)'; 
+                        geoLocatedCity = '臺北市'; 
+                        // 鎖定狀態列到預設城市
+                        locationIconElement.innerHTML = `🚩 失敗 (預設 ${replaceTai(geoLocatedCity)})`; 
                         fetchWeather();
                     }
 
                 }, (error) => {
                     console.warn('Geolocation failed:', error);
-                    // 整個定位流程失敗
-                    isGeoLocated = false;
-                    locationIconElement.innerHTML = '⚠️ 定位失敗 (使用預設)'; 
+                    geoLocatedCity = '臺北市'; 
+                    locationIconElement.innerHTML = `🚩 失敗 (預設 ${replaceTai(geoLocatedCity)})`; 
                     fetchWeather(); 
                 }, { timeout: 5000 });
             } else {
                 console.log("Geolocation is not supported by this browser.");
-                isGeoLocated = false;
+                geoLocatedCity = '臺北市'; 
                 locationIconElement.style.display = 'block';
-                locationIconElement.innerHTML = '🚩 無法定位 (使用預設)'; 
+                locationIconElement.innerHTML = `🚩 無法定位 (預設 ${replaceTai(geoLocatedCity)})`; 
                 fetchWeather(); 
             }
         } 
@@ -662,7 +660,6 @@
             const menuToggle = document.getElementById('menuToggle');
             const cityNav = document.getElementById('cityNav');
             
-            // 綁定手機版選單開關
             menuToggle.addEventListener('click', () => {
                 cityNav.classList.toggle('open');
             });

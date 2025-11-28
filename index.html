@@ -260,9 +260,28 @@
         .advice-icon { font-size: 2.8rem; margin-bottom: 10px; filter: drop-shadow(2px 2px 0 var(--op-text-dark)); }
         .advice-text { font-size: 1.5rem; font-weight: 900; color: var(--op-text-dark); margin: 5px 0; line-height: 1.2; text-transform: uppercase; text-shadow: 1px 1px 0 rgba(255, 255, 255, 0.7); }
         .section-title { font-size: 1.6rem; color: var(--op-yellow-gold); margin-bottom: 20px; margin-left: 5px; font-weight: 900; text-shadow: 3px 3px 0 var(--op-text-dark); }
-        .scroll-container { display: flex; overflow-x: auto; gap: 15px; padding-bottom: 15px; scrollbar-width: none; -ms-overflow-style: none; }
-        .scroll-container::-webkit-scrollbar { display: none; }
-        .mini-card { min-width: 150px; background: var(--op-card-bg); border-radius: 10px; padding: 22px 18px; text-align: center; border: 3px solid var(--op-card-border); flex-shrink: 0; box-shadow: 5px 5px 0 rgba(0, 0, 0, 0.3); }
+        
+        /* 【修改】未來預報容器改為 Grid 布局，禁止水平滾動 */
+        .scroll-container { 
+            display: grid; /* 改為 Grid 布局 */
+            /* 讓卡片自動換行，每列最小 120px 寬，最大 1fr */
+            grid-template-columns: repeat(auto-fit, minmax(120px, 1fr)); 
+            gap: 15px; /* 卡片間距 */
+            padding-bottom: 15px; 
+            overflow-x: hidden; /* **禁止水平滾動** */
+        }
+        .mini-card { 
+            min-width: unset; /* 移除最小寬度限制，讓卡片能縮小適應 Grid 欄位 */
+            background: var(--op-card-bg); 
+            border-radius: 10px; 
+            padding: 22px 18px; 
+            text-align: center; 
+            border: 3px solid var(--op-card-border); 
+            flex-shrink: 0; /* 在 Grid 布局下不影響 */
+            box-shadow: 5px 5px 0 rgba(0, 0, 0, 0.3); 
+            width: 100%; /* 確保佔滿 Grid 欄位 */
+        }
+
         .mini-time { background: var(--op-bg-red-dark); color: var(--op-text-light); padding: 5px 14px; border-radius: 8px; font-size: 0.95rem; display: inline-block; margin-bottom: 12px; font-weight: bold; text-shadow: 1px 1px 0 rgba(0, 0, 0, 0.2); }
         .mini-icon { font-size: 3.2rem; margin: 8px 0; }
         .mini-temp { font-size: 1.4rem; font-weight: 900; color: var(--op-text-dark); }
@@ -320,6 +339,11 @@
             .status-bar {
                 top: 55px; 
             }
+            
+            /* 在手機小螢幕下，讓 Grid 欄位最小可以縮到 100px */
+            .scroll-container { 
+                grid-template-columns: repeat(auto-fit, minmax(100px, 1fr)); 
+            }
         }
 
         @media (max-width: 320px) {
@@ -330,7 +354,7 @@
             .advice-item { padding: 12px 8px; }
             .city-button { font-size: 0.9rem; }
             .hero-card { padding: 30px 20px; border-width: 4px; box-shadow: 8px 8px 0 rgba(0, 0, 0, 0.7); }
-            .mini-card { min-width: 120px; padding: 18px 10px; }
+            .mini-card { padding: 18px 10px; }
             .mini-time { font-size: 0.8rem; padding: 4px 10px; }
             .mini-icon { font-size: 2.5rem; }
             .mini-temp { font-size: 1.2rem; }
@@ -378,10 +402,19 @@
         let geoLocatedCity = '臺北市'; 
         
         // ----------------------------------------------------
-        // 輔助函式 (略)
+        // 輔助函式
         // ----------------------------------------------------
         function replaceTai(cityName) {
              return cityName.replace('臺', '台');
+        }
+
+        // 【新增】用於清理降雨率數字的函式，移除所有非數字或百分號
+        function cleanRainProb(rainProb) {
+            if (typeof rainProb === 'string') {
+                // 移除所有非數字和非小數點的字符
+                return rainProb.replace(/[^\d.]/g, ''); 
+            }
+            return rainProb;
         }
 
         function getWeatherIcon(weather) {
@@ -398,6 +431,7 @@
         function getAdvice(rainProb, maxTemp) {
             let rainIcon = "🧭"; 
             let rainText = "風平浪靜";
+            // 這裡傳入的 rainProb 應該已經是清理後的數字，確保解析正確
             if (parseInt(rainProb) > 30) {
                 rainIcon = "🌊"; 
                 rainText = "準備應對風浪！";
@@ -480,7 +514,7 @@
             document.getElementById('menuToggle').textContent = `城市選單 (目前：${replaceTai(currentCity)})`;
         }
         
-        // 2. 更新右上角定位圖示 (核心修正：永遠只顯示地理定位城市)
+        // 2. 更新右上角定位圖示
         function updateLocationIcon() {
             const locationIconElement = document.getElementById('locationIcon');
             locationIconElement.style.display = 'block'; 
@@ -490,12 +524,12 @@
             
             // 移除所有手動選取相關的類名，確保是定位圖釘樣式
             locationIconElement.classList.remove('manual-select');
-            locationIconElement.style.background = 'var(--op-yellow-gold)'; // 確保顏色正確
+            locationIconElement.style.background = 'var(--op-yellow-gold)'; 
             locationIconElement.style.borderColor = 'var(--op-text-dark)';
         }
 
 
-        // 3. 渲染天氣資料 (略)
+        // 3. 渲染天氣資料 
         function renderWeather(data) {
             const forecasts = data.forecasts;
             if (!forecasts || forecasts.length === 0) {
@@ -505,7 +539,9 @@
             const current = forecasts[0];
             const others = forecasts.slice(1);
             
-            const advice = getAdvice(current.rain, current.maxTemp);
+            // 【修正】先清理降雨率，避免顯示 %%
+            const cleanCurrentRain = cleanRainProb(current.rain);
+            const advice = getAdvice(cleanCurrentRain, current.maxTemp);
             const avgTemp = Math.round((parseInt(current.maxTemp) + parseInt(current.minTemp)) / 2);
 
             document.getElementById('heroCard').innerHTML = `
@@ -521,7 +557,7 @@
                         <div class="advice-item">
                             <div class="advice-icon">${advice.rainIcon}</div>
                             <div class="advice-text">${advice.rainText}</div>
-                            <div style="font-size:0.75rem; color:var(--op-text-dark); font-weight:700;">降雨率 ${current.rain}%</div>
+                            <div style="font-size:0.75rem; color:var(--op-text-dark); font-weight:700;">降雨率 ${cleanCurrentRain}%</div>
                         </div>
                         <div class="advice-item">
                             <div class="advice-icon">${advice.clothIcon}</div>
@@ -542,13 +578,16 @@
                 if (fDate.getDate() !== todayDate) {
                     p = "明日" + p.replace('黎明出航', '黎明').replace('正午激戰', '正午').replace('午後尋寶', '午後').replace('黃昏停泊', '黃昏').replace('夜間偵察', '夜間');
                 }
+                
+                // 【修正】清理未來預報的降雨率
+                const cleanFutureRain = cleanRainProb(f.rain);
 
                 scrollContainer.innerHTML += `
                     <div class="mini-card">
                         <div class="mini-time">${p}</div>
                         <div class="mini-icon">${getWeatherIcon(f.weather)}</div>
                         <div class="mini-temp">${f.minTemp}° - ${f.maxTemp}°</div>
-                        <div style="font-size:0.8rem; color:var(--op-text-dark); margin-top:5px; font-weight: bold;">💧${f.rain}%</div>
+                        <div style="font-size:0.8rem; color:var(--op-text-dark); margin-top:5px; font-weight: bold;">💧${cleanFutureRain}%</div>
                     </div>
                 `;
             });
@@ -559,7 +598,7 @@
             updateLocationIcon(); 
         }
 
-        // 4. 獲取天氣資料 (略)
+        // 4. 獲取天氣資料 
         async function fetchWeather(isManual = false) {
             const API_URL = BASE_API_URL + currentCity;
             
@@ -598,7 +637,7 @@
             }
         }
         
-        // 5. 地理定位功能 (修正：移除 isGeoLocated 的複雜邏輯)
+        // 5. 地理定位功能
         function getGeolocationCity() {
             const locationIconElement = document.getElementById('locationIcon');
 
